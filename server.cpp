@@ -1,12 +1,11 @@
 #include <arpa/inet.h>
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -50,7 +49,8 @@ int main()
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	if (int rv = getaddrinfo(nullptr, PORT, &hints, &server_info) != 0) {
+	int rv = getaddrinfo(nullptr, PORT, &hints, &server_info);
+	if (rv != 0) {
 		std::cerr << "getaddrinfo: " << gai_strerror(rv) << "\n";
 		return 1;
 	}
