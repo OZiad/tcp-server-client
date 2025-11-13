@@ -6,9 +6,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <vector>
 
 constexpr const char* PORT = "9034";
 
@@ -41,6 +39,28 @@ inet_ntop2(const void* addr, char* buf, size_t size)
 	}
 
 	return ::inet_ntop(sas->ss_family, src, buf, static_cast<socklen_t>(size));
+}
+
+/**
+ * Send all data over socket, data might not be all sent in one go.
+ * Returns -1 on failure, 0 on success
+ */
+int sendall(int s, char* buf, size_t* len)
+{
+	size_t total = 0;
+	size_t bytesleft = *len;
+
+	ssize_t n;
+	while (total < *len) {
+		n = ::send(s, buf + total, bytesleft, 0);
+		if (n == -1) { break; }
+		total += n;
+		bytesleft -= n;
+	}
+
+	*len = total;
+
+	return n == -1 ? -1 : 0;// return -1 on failure, 0 on success
 }
 
 /**
@@ -125,12 +145,10 @@ void del_from_pfds(pollfd pfds[], int i, int* fd_count)
 void handle_new_connection(int listener, int* fd_count, int* fd_size, pollfd** pfds)
 {
 	sockaddr_storage remote_addr{};// Client address
-	socklen_t addrlen;
-	int newfd;// Newly accept()ed socket descriptor
 	char remoteIP[INET6_ADDRSTRLEN];
 
-	addrlen = sizeof remote_addr;
-	newfd = accept(listener, (sockaddr*) &remote_addr, &addrlen);
+	socklen_t addrlen = sizeof remote_addr;
+	int newfd = accept(listener, (sockaddr*) &remote_addr, &addrlen);
 
 	if (newfd == -1) {
 		perror("accept");
@@ -138,8 +156,7 @@ void handle_new_connection(int listener, int* fd_count, int* fd_size, pollfd** p
 		add_to_pfds(pfds, newfd, fd_count, fd_size);
 
 		printf("pollserver: new connection from %s on socket %d\n",
-			   inet_ntop2(&remote_addr, remoteIP, sizeof remoteIP),
-			   newfd);
+			   inet_ntop2(&remote_addr, remoteIP, sizeof remoteIP), newfd);
 	}
 }
 
@@ -150,7 +167,7 @@ void handle_client_data(int listener, int* fd_count, pollfd* pfds, int* pfd_i)
 {
 	char buf[256];// Buffer for client data
 
-	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+	ssize_t nbytes = ::recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
 
 	int sender_fd = pfds[*pfd_i].fd;
 
@@ -170,16 +187,18 @@ void handle_client_data(int listener, int* fd_count, pollfd* pfds, int* pfd_i)
 		(*pfd_i)--;
 
 	} else {// We got some good data from a client
-		printf("pollserver: recv from fd %d: %.*s", sender_fd,
-			   nbytes, buf);
+		printf("pollserver: recv from fd %d: %.*s", sender_fd, nbytes, buf);
+
 		// Send to everyone!
 		for (int j = 0; j < *fd_count; j++) {
 			int dest_fd = pfds[j].fd;
 
 			// Except the listener and ourselves
 			if (dest_fd != listener && dest_fd != sender_fd) {
-				if (send(dest_fd, buf, nbytes, 0) == -1) {
-					perror("send");
+				size_t len = strlen(buf);
+				if (sendall(dest_fd, buf, &len) == -1) {
+					perror("sendall");
+					printf("We only sent %d bytes because of the error!\n", len);
 				}
 			}
 		}
@@ -199,8 +218,7 @@ void process_connections(int listener, int* fd_count, int* fd_size, pollfd** pfd
 
 			if ((*pfds)[i].fd == listener) {
 				// If we're the listener, it's a new connection
-				handle_new_connection(listener, fd_count, fd_size,
-									  pfds);
+				handle_new_connection(listener, fd_count, fd_size, pfds);
 			} else {
 				// Otherwise we're just a regular client
 				handle_client_data(listener, fd_count, *pfds, &i);
@@ -213,18 +231,14 @@ void process_connections(int listener, int* fd_count, int* fd_size, pollfd** pfd
  * Main: create a listener and connection set, loop forever
  * processing connections.
  */
-int main(void)
+int main()
 {
-	int listener;// Listening socket descriptor
-
 	// Start off with room for 5 connections
-	// (We'll realloc as necessary)
 	int fd_size = 5;
 	int fd_count = 0;
 	pollfd* pfds = static_cast<pollfd*>(malloc(sizeof *pfds * fd_size));
 
-	// Set up and get a listening socket
-	listener = get_listener_socket();
+	int listener = get_listener_socket();
 
 	if (listener == -1) {
 		fprintf(stderr, "error getting listening socket\n");
