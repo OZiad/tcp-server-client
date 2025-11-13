@@ -147,7 +147,6 @@ int main()
 		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			close(sockfd);
 			sockfd = -1;
-			std::cerr << "server: bind" << "\n";
 			continue;
 		}
 
