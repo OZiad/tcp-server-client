@@ -8,4 +8,5 @@ add_executable(tcp_server_client
         client.cpp
         pollServer.cpp
         multithreadServer.cpp
+        multithreadClient.cpp
 )
