@@ -15,15 +15,14 @@ This repository contains three progressively more advanced TCP networking implem
 
 * Uses plain POSIX sockets (socket, bind, listen, accept, recv, send)
 * The server handles one client at a time
-* Easiest to understand; good baseline for learning
 
 ##### 2. Poll-Based Version (`poll-based/`)
 
 * Single-threaded server using poll()
 * Handles multiple clients concurrently in one event loop
-* Demonstrates non-blocking multiplexed I/O
-* Matches what real chat servers look like conceptually (messages are shared across all users)
-* Client is optional; you can use telnet to test it (run server then in a seperate terminal run `telnet localhost 9034`)
+* Non-blocking multiplexed I/O
+* Emulates real chat servers (messages are shared across all users)
+* Client is optional; can use telnet to test it (run server then in a seperate terminal run `telnet localhost 9034`)
 
 ##### 3. Multithreaded Version (`multi-threaded/`)
 
