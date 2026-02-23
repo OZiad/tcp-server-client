@@ -14,23 +14,22 @@ constexpr const char* PORT = "9034";
  * Convert socket to IP address string.
  * addr: struct sockaddr_in or struct sockaddr_in6
  */
-const char*
-inet_ntop2(const void* addr, char* buf, size_t size)
+const char* inet_ntop2(const void* addr, char* buf, size_t size)
 {
 	if (size == 0) return nullptr;
 
 	const void* src = nullptr;
-	auto* sas = reinterpret_cast<const sockaddr_storage*>(addr);
+	auto* sas = static_cast<const sockaddr_storage*>(addr);
 	int family = sas->ss_family;
 
 	switch (family) {
 		case AF_INET: {
-			auto sa4 = reinterpret_cast<const sockaddr_in*>(addr);
+			auto sa4 = static_cast<const sockaddr_in*>(addr);
 			src = &(sa4->sin_addr);
 			break;
 		}
 		case AF_INET6: {
-			auto sa6 = reinterpret_cast<const sockaddr_in6*>(addr);
+			auto sa6 = static_cast<const sockaddr_in6*>(addr);
 			src = &(sa6->sin6_addr);
 			break;
 		}
